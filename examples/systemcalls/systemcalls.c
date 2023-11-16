@@ -70,11 +70,11 @@ bool do_exec(int count, ...)
     {
         //this is child
         
-        int ret = execv(command[0], command + 1);
+        int ret = execv(command[0], command);
         if(-1 == ret)
         {
             perror("execv");
-            abort();//exit(EXIT_FAILURE);
+            abort();
         }
 
     }
@@ -149,7 +149,7 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
             return false;
         }
         
-        int ret = execv(command[0], command + 1);
+        int ret = execv(command[0], command);
         if(-1 == ret)
         {
             close(fd);
