@@ -1,5 +1,8 @@
 #include "systemcalls.h"
-
+#include <sys/wait.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
 /**
  * @param cmd the command to execute with system()
  * @return true if the command in @param cmd was executed
@@ -10,14 +13,23 @@
 bool do_system(const char *cmd)
 {
 
-/*
- * TODO  add your code here
- *  Call the system() function with the command set in the cmd
- *   and return a boolean true if the system() call completed with success
- *   or false() if it returned a failure
-*/
+    int ret = system(cmd);
+    if (-1 == ret)
+    {
+        return false;
+    }
+    else
+    {
+        if (WIFEXITED(ret))
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
 
-    return true;
 }
 
 /**
@@ -49,15 +61,48 @@ bool do_exec(int count, ...)
     // and may be removed
     command[count] = command[count];
 
-/*
- * TODO:
- *   Execute a system command by calling fork, execv(),
- *   and wait instead of system (see LSP page 161).
- *   Use the command[0] as the full path to the command to execute
- *   (first argument to execv), and use the remaining arguments
- *   as second argument to the execv() command.
- *
-*/
+    pid_t pid = fork();
+    if (-1 == pid) 
+    {
+        return false;
+    }
+    else if(0 == pid)
+    {
+        //this is child
+        
+        int ret = execv(command[0], command + 1);
+        if(-1 == ret)
+        {
+            perror("execv");
+            abort();//exit(EXIT_FAILURE);
+        }
+
+    }
+    else
+    {
+        //this is parent
+        int status;
+        // Wait for the child process to finish
+        waitpid(pid, &status, 0);
+        if (WIFEXITED(status))
+        {
+            // Child process terminated
+            int exit_status = WEXITSTATUS(status);
+            if (exit_status == 0) 
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else
+        {
+            return false;
+        }
+    }
+
 
     va_end(args);
 
@@ -83,6 +128,61 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
     // this line is to avoid a compile warning before your implementation is complete
     // and may be removed
     command[count] = command[count];
+
+
+    int fd = open(outputfile, O_WRONLY|O_TRUNC|O_CREAT, 0777);
+    if(fd < 0)
+    {
+        return false;
+    }
+    pid_t pid = fork();
+    if (-1 == pid) 
+    {
+        return false;
+    }
+    else if(0 == pid)
+    {
+        //this is child
+        int dup_ret = dup2(fd, STDOUT_FILENO);
+        if(-1 == dup_ret)
+        {
+            return false;
+        }
+        
+        int ret = execv(command[0], command + 1);
+        if(-1 == ret)
+        {
+            close(fd);
+            perror("execv");
+            abort();
+        }
+    }
+    else
+    {
+        //this is parent
+        int status;
+        // Wait for the child process to finish
+        waitpid(pid, &status, 0);
+        if (WIFEXITED(status))
+        {
+            // Child process terminated
+            int exit_status = WEXITSTATUS(status);
+            if (exit_status == 0) 
+            {
+                close(fd);
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else
+        {
+            return false;
+        }
+    }
+
 
 
 /*
